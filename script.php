@@ -114,15 +114,25 @@ $CliMessages->send_info_msg(
 
 /**
  * Connect to ElastiCache using the configuration endpoint.
- * ElastiCache's DNS automatically routes connections across all
- * available cluster nodes, enabling transparent auto-discovery
- * without requiring a special client library.
+ * DYNAMIC_CLIENT_MODE enables auto-discovery: the client contacts the
+ * configuration endpoint, retrieves the full node list, and uses
+ * consistent hashing to distribute keys evenly across all nodes.
  */
 
 $CliMessages->send_info_msg("Trying to connect to the Memcached cluster...");
 
 try {
   $client = new Memcached();
+
+  // Enable AWS auto-discovery and consistent hashing across all cluster nodes.
+  // Requires the AWS ElastiCache cluster client library (not standard pecl/memcached).
+  if (defined('Memcached::OPT_CLIENT_MODE') && defined('Memcached::DYNAMIC_CLIENT_MODE')) {
+    $client->setOption(Memcached::OPT_CLIENT_MODE, Memcached::DYNAMIC_CLIENT_MODE);
+    $CliMessages->send_info_msg("Auto-discovery enabled (DYNAMIC_CLIENT_MODE).");
+  } else {
+    $CliMessages->send_warn_msg("DYNAMIC_CLIENT_MODE not available - keys may not distribute evenly.");
+  }
+
   $client->addServer($server_endpoint, $server_port);
 
   // Verify connection with a test key
